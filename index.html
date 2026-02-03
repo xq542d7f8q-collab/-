@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ストレス解消ターゲット</title>
+
+<style>
+body {
+  font-family: "Hiragino Sans", sans-serif;
+  background:#f2f4f8;
+  text-align:center;
+}
+select, button {
+  padding:6px;
+  margin:4px;
+  font-size:14px;
+}
+canvas {
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 4px 12px rgba(0,0,0,.2);
+  margin-top:10px;
+}
+.hp { font-size:20px; margin-top:6px; }
+</style>
+</head>
+
+<body>
+<h1>ストレス解消ターゲット</h1>
+
+<!-- 特徴選択 -->
+<div>
+  性別
+  <select id="gender">
+    <option value="male">男性</option>
+    <option value="female">女性</option>
+  </select>
+
+  髪型
+  <select id="hair">
+    <option value="short">短髪</option>
+    <option value="long">長髪</option>
+  </select>
+
+  髪色
+  <select id="hairColor">
+    <option value="#2c2c2c">黒</option>
+    <option value="#6b4f2a">茶</option>
+  </select>
+
+  肌色
+  <select id="skin">
+    <option value="#ffddb8">明るめ</option>
+    <option value="#f1c27d">普通</option>
+    <option value="#d8a46f">濃い</option>
+  </select>
+
+  眼鏡
+  <select id="glasses">
+    <option value="no">なし</option>
+    <option value="yes">あり</option>
+  </select>
+
+  表情
+  <select id="face">
+    <option value="smile">笑顔</option>
+    <option value="normal">真顔</option>
+    <option value="angry">怒り</option>
+  </select>
+
+  <br>
+  <button onclick="createTarget()">相手を生成</button>
+</div>
+
+<!-- 攻撃 -->
+<div>
+  <button onclick="attack('punch')">👊 殴る</button>
+  <button onclick="attack('kick')">🦵 蹴る</button>
+  <button onclick="attack('magic')">✨ 魔法</button>
+</div>
+
+<canvas id="c" width="320" height="380"></canvas>
+<div class="hp">HP: <span id="hp">20</span></div>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+let hp = 20;
+let dead = false;
+let shakeX = 0, shakeY = 0;
+let effect = null;
+
+function v(id){ return document.getElementById(id).value; }
+
+/* ==== 音 ==== */
+function playSound(type){
+  const a = new AudioContext();
+  const o = a.createOscillator();
+  const g = a.createGain();
+  o.connect(g).connect(a.destination);
+
+  if(type==="punch") o.frequency.value = 160;
+  if(type==="kick") o.frequency.value = 110;
+  if(type==="magic") o.frequency.value = 420;
+  if(type==="dead")  o.frequency.value = 60;
+
+  g.gain.setValueAtTime(0.4, a.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.01, a.currentTime+0.3);
+
+  o.start();
+  o.stop(a.currentTime+0.3);
+}
+
+function createTarget(){
+  hp = 20;
+  dead = false;
+  effect = null;
+  document.getElementById("hp").textContent = hp;
+  draw();
+}
+
+function draw(){
+  ctx.clearRect(0,0,320,380);
+  const cx = 160 + shakeX;
+  const cy = 170 + shakeY;
+
+  if(dead){
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(Math.PI/2);
+    ctx.translate(-cx,-cy);
+    ctx.globalAlpha = 0.5;
+  }
+
+  // 顔
+  ctx.fillStyle = v("skin");
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 70, 82, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // 髪
+  ctx.fillStyle = v("hairColor");
+  ctx.beginPath();
+  ctx.moveTo(cx-75, cy-40);
+  ctx.quadraticCurveTo(cx, cy-120, cx+75, cy-40);
+  ctx.lineTo(cx+75, cy-80);
+  ctx.quadraticCurveTo(cx, cy-140, cx-75, cy-80);
+  ctx.closePath();
+  ctx.fill();
+
+  // 目
+  ctx.fillStyle="#000";
+  ctx.beginPath();
+  ctx.arc(cx-22, cy-10, 5, 0, Math.PI*2);
+  ctx.arc(cx+22, cy-10, 5, 0, Math.PI*2);
+  ctx.fill();
+
+  // 眼鏡
+  if(v("glasses")==="yes"){
+    ctx.strokeStyle="#333";
+    ctx.strokeRect(cx-38, cy-22, 24, 18);
+    ctx.strokeRect(cx+14, cy-22, 24, 18);
+    ctx.beginPath();
+    ctx.moveTo(cx-14, cy-13);
+    ctx.lineTo(cx+14, cy-13);
+    ctx.stroke();
+  }
+
+  // 口
+  ctx.strokeStyle="#333";
+  ctx.lineWidth=3;
+  ctx.beginPath();
+  if(v("face")==="smile"){
+    ctx.arc(cx, cy+30, 18, 0, Math.PI);
+  }else if(v("face")==="angry"){
+    ctx.arc(cx, cy+40, 18, Math.PI, 0);
+  }else{
+    ctx.moveTo(cx-15, cy+32);
+    ctx.lineTo(cx+15, cy+32);
+  }
+  ctx.stroke();
+
+  /* エフェクト */
+  if(effect==="punch"){
+    ctx.fillStyle="rgba(255,0,0,.4)";
+    ctx.beginPath();
+    ctx.arc(cx-40, cy, 30, 0, Math.PI*2);
+    ctx.fill();
+  }
+  if(effect==="kick"){
+    ctx.fillStyle="rgba(0,0,255,.35)";
+    ctx.fillRect(cx-70, cy+20, 140, 26);
+  }
+  if(effect==="magic"){
+    ctx.strokeStyle="purple";
+    for(let i=0;i<5;i++){
+      ctx.beginPath();
+      ctx.arc(cx, cy, 20+i*10, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  }
+
+  if(dead) ctx.restore();
+}
+
+function attack(type){
+  if(dead) return;
+
+  const dmg = type==="punch"?4:type==="kick"?6:8;
+  hp -= dmg;
+  if(hp<0) hp=0;
+  document.getElementById("hp").textContent = hp;
+
+  playSound(type);
+  effect = type;
+  shakeX = Math.random()*10-5;
+  shakeY = Math.random()*10-5;
+  draw();
+
+  setTimeout(()=>{
+    shakeX = shakeY = 0;
+    effect = null;
+
+    if(hp===0){
+      dead = true;
+      playSound("dead");
+      draw();
+      setTimeout(()=>alert("撃破！"),500);
+    } else {
+      draw();
+    }
+  },150);
+}
+
+createTarget();
+</script>
+</body>
+</html>
